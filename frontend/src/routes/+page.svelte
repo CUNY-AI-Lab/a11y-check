@@ -1,0 +1,881 @@
+<script lang="ts">
+	import '../app.css';
+
+	// Configuration
+	const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+	// State
+	let file = $state<File | null>(null);
+	let checkType = $state<'accessibility' | 'formatting' | 'both'>('both');
+	let isAnalyzing = $state(false);
+	let analysisText = $state('');
+	let error = $state<string | null>(null);
+	let dragOver = $state(false);
+	let statusMessage = $state('');
+
+	// Derived
+	let canAnalyze = $derived(file !== null && !isAnalyzing);
+	let hasResults = $derived(analysisText.length > 0);
+
+	// File handling
+	function handleFileSelect(e: Event) {
+		const input = e.target as HTMLInputElement;
+		if (input.files?.[0]) {
+			file = input.files[0];
+			analysisText = '';
+			error = null;
+		}
+	}
+
+	function handleDrop(e: DragEvent) {
+		e.preventDefault();
+		dragOver = false;
+		const droppedFile = e.dataTransfer?.files[0];
+		if (droppedFile?.type === 'application/pdf') {
+			file = droppedFile;
+			analysisText = '';
+			error = null;
+		} else {
+			error = 'Please drop a PDF file.';
+		}
+	}
+
+	function handleDragOver(e: DragEvent) {
+		e.preventDefault();
+		dragOver = true;
+	}
+
+	function handleDragLeave() {
+		dragOver = false;
+	}
+
+	function removeFile() {
+		file = null;
+		analysisText = '';
+		error = null;
+	}
+
+	// Analysis with SSE streaming
+	async function analyzeDocument() {
+		if (!file) return;
+
+		isAnalyzing = true;
+		error = null;
+		analysisText = '';
+		statusMessage = 'Preparing analysis...';
+
+		try {
+			const formData = new FormData();
+			formData.append('file', file);
+			formData.append('check_type', checkType);
+
+			const response = await fetch(`${API_URL}/analyze`, {
+				method: 'POST',
+				body: formData,
+			});
+
+			if (!response.ok) {
+				const errData = await response.json();
+				throw new Error(errData.detail || 'Analysis failed');
+			}
+
+			// Read SSE stream
+			const reader = response.body?.getReader();
+			const decoder = new TextDecoder();
+
+			if (!reader) {
+				throw new Error('Failed to get response stream');
+			}
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				const chunk = decoder.decode(value);
+				const lines = chunk.split('\n');
+
+				for (const line of lines) {
+					if (line.startsWith('data: ')) {
+						const data = line.slice(6);
+
+						if (data === '[DONE]') {
+							continue;
+						}
+
+						try {
+							const event = JSON.parse(data);
+
+							// Init event
+							if (event.subtype === 'init') {
+								statusMessage = 'Connected to AI assistant...';
+							}
+
+							// Tool use events (show what the agent is doing)
+							if (event.content && Array.isArray(event.content)) {
+								for (const block of event.content) {
+									// Tool use - agent is reading/doing something
+									if (block.name === 'Read') {
+										statusMessage = 'Reading your PDF document...';
+									}
+
+									// Text content from assistant - agent is generating analysis
+									if (block.text && typeof block.text === 'string') {
+										if (!analysisText) {
+											statusMessage = 'Generating analysis...';
+										}
+										analysisText += block.text;
+									}
+								}
+							}
+
+							// Final result from success event
+							if (event.subtype === 'success') {
+								statusMessage = '';
+								if (event.result && !analysisText) {
+									analysisText = event.result;
+								}
+							}
+
+							// Handle errors
+							if (event.type === 'error' || event.subtype === 'error') {
+								error = event.error || event.message || 'An error occurred during analysis';
+								statusMessage = '';
+							}
+						} catch (e) {
+							// Ignore JSON parse errors for incomplete chunks
+						}
+					}
+				}
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'An unexpected error occurred';
+		} finally {
+			isAnalyzing = false;
+			statusMessage = '';
+		}
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+	}
+</script>
+
+<svelte:head>
+	<title>A11y Check - PDF Accessibility & Formatting Checker</title>
+	<meta name="description" content="Check your dissertation PDF for accessibility and formatting compliance before submission." />
+</svelte:head>
+
+<div class="page">
+	<!-- Header -->
+	<header class="header">
+		<div class="container">
+			<div class="header-content">
+				<div class="logo">
+					<span class="logo-icon" aria-hidden="true">✓</span>
+					<h1>A11y Check</h1>
+				</div>
+				<p class="tagline">PDF Accessibility & Formatting Checker</p>
+			</div>
+		</div>
+	</header>
+
+	<main class="main">
+		<div class="container">
+			<!-- Intro -->
+			<section class="intro" aria-labelledby="intro-heading">
+				<h2 id="intro-heading" class="sr-only">About this tool</h2>
+				<p class="intro-text">
+					Upload your dissertation or thesis PDF to check for <strong>accessibility compliance</strong>
+					(WCAG 2.1 Level AA) and <strong>formatting requirements</strong> before submitting to Academic Works.
+				</p>
+				<p class="deadline-notice">
+					<span class="deadline-icon" aria-hidden="true">📅</span>
+					New federal accessibility requirements go into effect <strong>April 24, 2026</strong>.
+				</p>
+			</section>
+
+			<!-- Upload Section -->
+			<section class="upload-section card" aria-labelledby="upload-heading">
+				<h2 id="upload-heading">Upload Your Document</h2>
+
+				<!-- Drop zone -->
+				<div
+					class="drop-zone"
+					class:drag-over={dragOver}
+					class:has-file={file !== null}
+					ondrop={handleDrop}
+					ondragover={handleDragOver}
+					ondragleave={handleDragLeave}
+					role="region"
+					aria-label="File upload area"
+				>
+					{#if file}
+						<div class="file-info">
+							<span class="file-icon" aria-hidden="true">📄</span>
+							<div class="file-details">
+								<span class="file-name">{file.name}</span>
+								<span class="file-size">{formatFileSize(file.size)}</span>
+							</div>
+							<button
+								type="button"
+								class="remove-file"
+								onclick={removeFile}
+								aria-label="Remove file"
+							>
+								✕
+							</button>
+						</div>
+					{:else}
+						<div class="drop-content">
+							<span class="drop-icon" aria-hidden="true">📁</span>
+							<p class="drop-text">
+								Drag & drop your PDF here, or
+								<label class="file-label">
+									<span>browse</span>
+									<input
+										type="file"
+										accept=".pdf"
+										onchange={handleFileSelect}
+										class="sr-only"
+									/>
+								</label>
+							</p>
+							<p class="drop-hint">Maximum file size: 25 MB</p>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Check type selection -->
+				<fieldset class="check-options">
+					<legend>What would you like to check?</legend>
+					<div class="radio-group">
+						<label class="radio-option">
+							<input type="radio" name="checkType" value="both" bind:group={checkType} />
+							<span class="radio-label">
+								<strong>Both</strong>
+								<small>Accessibility + Formatting</small>
+							</span>
+						</label>
+						<label class="radio-option">
+							<input type="radio" name="checkType" value="accessibility" bind:group={checkType} />
+							<span class="radio-label">
+								<strong>Accessibility Only</strong>
+								<small>WCAG 2.1 Level AA</small>
+							</span>
+						</label>
+						<label class="radio-option">
+							<input type="radio" name="checkType" value="formatting" bind:group={checkType} />
+							<span class="radio-label">
+								<strong>Formatting Only</strong>
+								<small>GC Dissertation Requirements</small>
+							</span>
+						</label>
+					</div>
+				</fieldset>
+
+				<!-- Analyze button -->
+				<button
+					type="button"
+					class="btn btn-primary analyze-btn"
+					disabled={!canAnalyze}
+					onclick={analyzeDocument}
+				>
+					{#if isAnalyzing}
+						<span class="spinner" aria-hidden="true"></span>
+						Analyzing...
+					{:else}
+						Check Document
+					{/if}
+				</button>
+
+				{#if error}
+					<div class="error-message" role="alert">
+						<span aria-hidden="true">⚠️</span>
+						{error}
+					</div>
+				{/if}
+			</section>
+
+			<!-- Results Section -->
+			{#if hasResults || isAnalyzing}
+				<section class="results-section" aria-labelledby="results-heading">
+					<h2 id="results-heading">Analysis Results</h2>
+
+					<div class="analysis-output card animate-fade-in">
+						{#if isAnalyzing && !analysisText}
+							<div class="loading-state">
+								<span class="spinner" aria-hidden="true"></span>
+								<p>{statusMessage || 'Reading and analyzing your document...'}</p>
+							</div>
+						{:else}
+							{#if statusMessage && isAnalyzing}
+								<div class="status-bar">
+									<span class="spinner small" aria-hidden="true"></span>
+									<span>{statusMessage}</span>
+								</div>
+							{/if}
+							<div class="markdown-content">
+								{@html formatMarkdown(analysisText)}
+							</div>
+							{#if isAnalyzing}
+								<span class="typing-indicator" aria-hidden="true"></span>
+							{/if}
+						{/if}
+					</div>
+				</section>
+			{/if}
+		</div>
+	</main>
+
+	<!-- Footer -->
+	<footer class="footer">
+		<div class="container">
+			<p>
+				<a href="https://www.gc.cuny.edu/library" target="_blank" rel="noopener">
+					Mina Rees Library
+				</a>
+				·
+				<a href="https://www.gc.cuny.edu" target="_blank" rel="noopener">
+					CUNY Graduate Center
+				</a>
+			</p>
+			<p class="footer-note">
+				This tool uses AI to analyze your document. Results should be verified manually.
+			</p>
+		</div>
+	</footer>
+</div>
+
+<script context="module">
+	import DOMPurify from 'dompurify';
+
+	// Simple markdown-to-HTML conversion with sanitization
+	function formatMarkdown(text: string): string {
+		if (!text) return '';
+
+		// Process tables first (before escaping)
+		let processed = text;
+
+		// Convert markdown tables to HTML
+		const tableRegex = /\|(.+)\|\n\|[-:\s|]+\|\n((?:\|.+\|\n?)+)/g;
+		processed = processed.replace(tableRegex, (match, header, body) => {
+			const headerCells = header.split('|').map((c: string) => c.trim()).filter((c: string) => c);
+			const headerHtml = headerCells.map((c: string) => `<th>${c}</th>`).join('');
+
+			const rows = body.trim().split('\n');
+			const bodyHtml = rows.map((row: string) => {
+				const cells = row.split('|').map((c: string) => c.trim()).filter((c: string) => c);
+				return `<tr>${cells.map((c: string) => `<td>${c}</td>`).join('')}</tr>`;
+			}).join('');
+
+			return `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+		});
+
+		const html = processed
+			// Escape HTML (but not our table tags)
+			.replace(/&(?!amp;|lt;|gt;)/g, '&amp;')
+			// Horizontal rules
+			.replace(/^---+$/gm, '<hr>')
+			// Headers
+			.replace(/^#### (.+)$/gm, '<h5>$1</h5>')
+			.replace(/^### (.+)$/gm, '<h4>$1</h4>')
+			.replace(/^## (.+)$/gm, '<h3>$1</h3>')
+			.replace(/^# (.+)$/gm, '<h2>$1</h2>')
+			// Bold
+			.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+			// Italic
+			.replace(/\*(.+?)\*/g, '<em>$1</em>')
+			// Code blocks
+			.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+			// Inline code
+			.replace(/`([^`]+)`/g, '<code>$1</code>')
+			// Checkboxes
+			.replace(/- \[ \] (.+)$/gm, '<li class="checkbox unchecked">$1</li>')
+			.replace(/- \[x\] (.+)$/gm, '<li class="checkbox checked">$1</li>')
+			// Bullet lists
+			.replace(/^- (.+)$/gm, '<li>$1</li>')
+			// Wrap consecutive li in ul
+			.replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+			// Numbered lists
+			.replace(/^\d+\. (.+)$/gm, '<li class="numbered">$1</li>')
+			// Line breaks (but not in tables)
+			.replace(/\n\n/g, '</p><p>')
+			.replace(/\n(?!<)/g, '<br>');
+
+		// Sanitize to prevent XSS
+		return DOMPurify.sanitize(html, {
+			ALLOWED_TAGS: ['h2', 'h3', 'h4', 'h5', 'p', 'br', 'hr', 'strong', 'em', 'code', 'pre', 'ul', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+			ALLOWED_ATTR: ['class']
+		});
+	}
+</script>
+
+<style>
+	/* Page layout */
+	.page {
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Header */
+	.header {
+		background: linear-gradient(135deg, var(--color-ink) 0%, var(--color-ink-soft) 100%);
+		color: white;
+		padding: var(--space-2xl) 0;
+		text-align: center;
+	}
+
+	.header-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-sm);
+	}
+
+	.logo {
+		display: flex;
+		align-items: center;
+		gap: var(--space-md);
+	}
+
+	.logo-icon {
+		font-size: 2.5rem;
+		background: var(--color-accent);
+		width: 60px;
+		height: 60px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.logo h1 {
+		color: white;
+		margin: 0;
+		font-size: 2.5rem;
+	}
+
+	.tagline {
+		color: var(--color-tan);
+		font-size: 1.125rem;
+		margin: 0;
+	}
+
+	/* Main */
+	.main {
+		flex: 1;
+		padding: var(--space-2xl) 0;
+	}
+
+	/* Intro */
+	.intro {
+		text-align: center;
+		margin-bottom: var(--space-2xl);
+	}
+
+	.intro-text {
+		font-size: 1.125rem;
+		color: var(--color-ink-soft);
+		max-width: 600px;
+		margin: 0 auto var(--space-lg);
+	}
+
+	.deadline-notice {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-sm);
+		background: var(--color-warning-bg);
+		color: var(--color-warning);
+		padding: var(--space-sm) var(--space-lg);
+		border-radius: 100px;
+		font-size: 0.9375rem;
+		margin: 0;
+	}
+
+	/* Upload section */
+	.upload-section {
+		margin-bottom: var(--space-2xl);
+	}
+
+	.upload-section h2 {
+		text-align: center;
+		margin-bottom: var(--space-xl);
+	}
+
+	/* Drop zone */
+	.drop-zone {
+		border: 2px dashed var(--color-tan);
+		border-radius: var(--radius-lg);
+		padding: var(--space-2xl);
+		text-align: center;
+		transition: all var(--transition-normal);
+		margin-bottom: var(--space-xl);
+	}
+
+	.drop-zone.drag-over {
+		border-color: var(--color-accent);
+		background: var(--color-paper);
+	}
+
+	.drop-zone.has-file {
+		border-style: solid;
+		border-color: var(--color-success);
+		background: var(--color-success-bg);
+	}
+
+	.drop-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-sm);
+	}
+
+	.drop-icon {
+		font-size: 3rem;
+		opacity: 0.6;
+	}
+
+	.drop-text {
+		color: var(--color-ink-soft);
+		margin: 0;
+	}
+
+	.drop-hint {
+		color: var(--color-ink-muted);
+		font-size: 0.875rem;
+		margin: 0;
+	}
+
+	.file-label {
+		color: var(--color-accent);
+		cursor: pointer;
+		text-decoration: underline;
+	}
+
+	.file-label:hover {
+		color: var(--color-accent-dark);
+	}
+
+	/* File info */
+	.file-info {
+		display: flex;
+		align-items: center;
+		gap: var(--space-md);
+		justify-content: center;
+	}
+
+	.file-icon {
+		font-size: 2rem;
+	}
+
+	.file-details {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.file-name {
+		font-weight: 600;
+		color: var(--color-ink);
+	}
+
+	.file-size {
+		font-size: 0.875rem;
+		color: var(--color-ink-muted);
+	}
+
+	.remove-file {
+		background: none;
+		border: none;
+		font-size: 1.25rem;
+		color: var(--color-ink-muted);
+		cursor: pointer;
+		padding: var(--space-xs);
+		transition: color var(--transition-fast);
+	}
+
+	.remove-file:hover {
+		color: var(--color-critical);
+	}
+
+	/* Check options */
+	.check-options {
+		border: none;
+		margin-bottom: var(--space-xl);
+	}
+
+	.check-options legend {
+		font-family: var(--font-display);
+		font-weight: 600;
+		font-size: 1rem;
+		margin-bottom: var(--space-md);
+		text-align: center;
+		width: 100%;
+	}
+
+	.radio-group {
+		display: flex;
+		gap: var(--space-md);
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+
+	.radio-option {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--space-sm);
+		padding: var(--space-md) var(--space-lg);
+		border: var(--border-light);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		flex: 1;
+		min-width: 180px;
+		max-width: 220px;
+	}
+
+	.radio-option:hover {
+		border-color: var(--color-accent);
+		background: var(--color-paper);
+	}
+
+	.radio-option:has(input:checked) {
+		border-color: var(--color-accent);
+		background: var(--color-paper);
+	}
+
+	.radio-option input {
+		margin-top: 4px;
+		accent-color: var(--color-accent);
+	}
+
+	.radio-label {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.radio-label strong {
+		font-weight: 600;
+	}
+
+	.radio-label small {
+		color: var(--color-ink-muted);
+		font-size: 0.8125rem;
+	}
+
+	/* Analyze button */
+	.analyze-btn {
+		display: flex;
+		margin: 0 auto;
+		font-size: 1.125rem;
+		padding: var(--space-md) var(--space-2xl);
+	}
+
+	/* Error message */
+	.error-message {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		justify-content: center;
+		background: var(--color-critical-bg);
+		color: var(--color-critical);
+		padding: var(--space-md);
+		border-radius: var(--radius-md);
+		margin-top: var(--space-lg);
+	}
+
+	/* Results section */
+	.results-section {
+		margin-top: var(--space-2xl);
+	}
+
+	.results-section h2 {
+		text-align: center;
+		margin-bottom: var(--space-xl);
+	}
+
+	/* Analysis output */
+	.analysis-output {
+		min-height: 200px;
+	}
+
+	.loading-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-md);
+		padding: var(--space-2xl);
+		color: var(--color-ink-muted);
+	}
+
+	.status-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-sm) var(--space-md);
+		background: var(--color-paper);
+		border-radius: var(--radius-md);
+		font-size: 0.875rem;
+		color: var(--color-ink-muted);
+		margin-bottom: var(--space-md);
+	}
+
+	.spinner.small {
+		width: 16px;
+		height: 16px;
+		border-width: 2px;
+	}
+
+	.markdown-content {
+		line-height: 1.8;
+	}
+
+	.markdown-content :global(h2) {
+		font-size: 1.5rem;
+		margin-top: var(--space-xl);
+		margin-bottom: var(--space-md);
+		color: var(--color-ink);
+		border-bottom: 1px solid var(--color-tan);
+		padding-bottom: var(--space-sm);
+	}
+
+	.markdown-content :global(h3) {
+		font-size: 1.25rem;
+		margin-top: var(--space-lg);
+		margin-bottom: var(--space-sm);
+		color: var(--color-ink);
+	}
+
+	.markdown-content :global(h4) {
+		font-size: 1.1rem;
+		margin-top: var(--space-md);
+		margin-bottom: var(--space-sm);
+		color: var(--color-ink-soft);
+	}
+
+	.markdown-content :global(ul) {
+		margin: var(--space-md) 0;
+		padding-left: var(--space-xl);
+	}
+
+	.markdown-content :global(li) {
+		margin-bottom: var(--space-sm);
+	}
+
+	.markdown-content :global(strong) {
+		color: var(--color-ink);
+		font-weight: 600;
+	}
+
+	.markdown-content :global(code) {
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+		background: var(--color-paper);
+		padding: 2px 6px;
+		border-radius: 4px;
+	}
+
+	.markdown-content :global(pre) {
+		background: var(--color-paper);
+		padding: var(--space-md);
+		border-radius: var(--radius-md);
+		overflow-x: auto;
+		margin: var(--space-md) 0;
+	}
+
+	.markdown-content :global(pre code) {
+		background: none;
+		padding: 0;
+	}
+
+	.markdown-content :global(table) {
+		width: 100%;
+		border-collapse: collapse;
+		margin: var(--space-lg) 0;
+		font-size: 0.9375rem;
+	}
+
+	.markdown-content :global(th),
+	.markdown-content :global(td) {
+		padding: var(--space-sm) var(--space-md);
+		text-align: left;
+		border: 1px solid var(--color-tan);
+	}
+
+	.markdown-content :global(th) {
+		background: var(--color-paper);
+		font-weight: 600;
+	}
+
+	.markdown-content :global(tr:nth-child(even)) {
+		background: var(--color-cream);
+	}
+
+	.markdown-content :global(hr) {
+		border: none;
+		border-top: 1px solid var(--color-tan);
+		margin: var(--space-xl) 0;
+	}
+
+	.markdown-content :global(.checkbox) {
+		list-style: none;
+		padding-left: 0;
+	}
+
+	.markdown-content :global(.checkbox::before) {
+		content: '☐ ';
+		color: var(--color-ink-muted);
+	}
+
+	.markdown-content :global(.checkbox.checked::before) {
+		content: '☑ ';
+		color: var(--color-success);
+	}
+
+	.typing-indicator {
+		display: inline-block;
+		width: 8px;
+		height: 16px;
+		background: var(--color-accent);
+		margin-left: 2px;
+		animation: blink 1s step-end infinite;
+	}
+
+	@keyframes blink {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0; }
+	}
+
+	/* Footer */
+	.footer {
+		background: var(--color-paper);
+		border-top: var(--border-light);
+		padding: var(--space-xl) 0;
+		text-align: center;
+		margin-top: auto;
+	}
+
+	.footer p {
+		margin-bottom: var(--space-sm);
+	}
+
+	.footer-note {
+		font-size: 0.875rem;
+		color: var(--color-ink-muted);
+	}
+
+	/* Responsive */
+	@media (max-width: 600px) {
+		.radio-group {
+			flex-direction: column;
+		}
+
+		.radio-option {
+			max-width: none;
+		}
+	}
+</style>

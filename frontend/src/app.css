@@ -1,0 +1,308 @@
+/*
+ * A11y Check - Academic Editorial Design System
+ * Warm, scholarly, and exemplarily accessible
+ */
+
+/* Import fonts - Fraunces for headings (scholarly), Source Serif Pro for body */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+	/* Warm paper palette */
+	--color-cream: #faf8f5;
+	--color-paper: #f5f2ed;
+	--color-parchment: #ebe6de;
+	--color-tan: #d4cdc2;
+
+	/* Ink colors */
+	--color-ink: #1a1612;
+	--color-ink-soft: #3d352c;
+	--color-ink-muted: #6b5f52;
+
+	/* Accent - scholarly burgundy */
+	--color-accent: #8b2635;
+	--color-accent-dark: #6b1d29;
+	--color-accent-light: #a83a4a;
+
+	/* Status colors - muted and accessible */
+	--color-success: #2d5a3d;
+	--color-success-bg: #e8f0ea;
+	--color-warning: #8b6914;
+	--color-warning-bg: #fdf6e3;
+	--color-critical: #9b2c2c;
+	--color-critical-bg: #fdf2f2;
+	--color-info: #2c5282;
+	--color-info-bg: #ebf4ff;
+
+	/* Typography */
+	--font-display: 'Fraunces', Georgia, serif;
+	--font-body: 'Source Serif 4', Georgia, serif;
+	--font-mono: 'JetBrains Mono', Consolas, monospace;
+
+	/* Spacing */
+	--space-xs: 0.25rem;
+	--space-sm: 0.5rem;
+	--space-md: 1rem;
+	--space-lg: 1.5rem;
+	--space-xl: 2rem;
+	--space-2xl: 3rem;
+	--space-3xl: 4rem;
+
+	/* Shadows - subtle, warm */
+	--shadow-sm: 0 1px 2px rgba(26, 22, 18, 0.06);
+	--shadow-md: 0 4px 12px rgba(26, 22, 18, 0.08);
+	--shadow-lg: 0 8px 24px rgba(26, 22, 18, 0.12);
+
+	/* Borders */
+	--border-light: 1px solid var(--color-tan);
+	--border-medium: 1px solid var(--color-ink-muted);
+	--radius-sm: 4px;
+	--radius-md: 8px;
+	--radius-lg: 12px;
+
+	/* Transitions */
+	--transition-fast: 150ms ease;
+	--transition-normal: 250ms ease;
+}
+
+/* Reset */
+*, *::before, *::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	font-size: 18px;
+	scroll-behavior: smooth;
+}
+
+body {
+	font-family: var(--font-body);
+	font-size: 1rem;
+	line-height: 1.7;
+	color: var(--color-ink);
+	background: var(--color-cream);
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus styles - visible and beautiful */
+:focus-visible {
+	outline: 3px solid var(--color-accent);
+	outline-offset: 3px;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+	font-family: var(--font-display);
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--color-ink);
+}
+
+h1 {
+	font-size: 2.5rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+h2 {
+	font-size: 1.75rem;
+	margin-bottom: var(--space-md);
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-bottom: var(--space-sm);
+}
+
+p {
+	margin-bottom: var(--space-md);
+}
+
+a {
+	color: var(--color-accent);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 2px;
+	transition: color var(--transition-fast);
+}
+
+a:hover {
+	color: var(--color-accent-dark);
+}
+
+/* Buttons */
+button, .btn {
+	font-family: var(--font-body);
+	font-size: 1rem;
+	font-weight: 500;
+	padding: var(--space-sm) var(--space-lg);
+	border-radius: var(--radius-md);
+	border: none;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-sm);
+}
+
+.btn-primary {
+	background: var(--color-accent);
+	color: white;
+}
+
+.btn-primary:hover {
+	background: var(--color-accent-dark);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+.btn-primary:active {
+	transform: translateY(0);
+}
+
+.btn-primary:disabled {
+	background: var(--color-tan);
+	color: var(--color-ink-muted);
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
+}
+
+.btn-secondary {
+	background: transparent;
+	color: var(--color-ink);
+	border: var(--border-medium);
+}
+
+.btn-secondary:hover {
+	background: var(--color-paper);
+}
+
+/* Cards */
+.card {
+	background: white;
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-sm);
+	border: var(--border-light);
+	padding: var(--space-xl);
+}
+
+/* Container */
+.container {
+	max-width: 900px;
+	margin: 0 auto;
+	padding: 0 var(--space-lg);
+}
+
+/* Utility classes */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Status badges */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-xs);
+	padding: var(--space-xs) var(--space-sm);
+	border-radius: 100px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.badge-pass {
+	background: var(--color-success-bg);
+	color: var(--color-success);
+}
+
+.badge-warning {
+	background: var(--color-warning-bg);
+	color: var(--color-warning);
+}
+
+.badge-fail {
+	background: var(--color-critical-bg);
+	color: var(--color-critical);
+}
+
+.badge-info {
+	background: var(--color-info-bg);
+	color: var(--color-info);
+}
+
+/* Issue severity indicators */
+.severity-critical {
+	--severity-color: var(--color-critical);
+	--severity-bg: var(--color-critical-bg);
+}
+
+.severity-warning {
+	--severity-color: var(--color-warning);
+	--severity-bg: var(--color-warning-bg);
+}
+
+.severity-info {
+	--severity-color: var(--color-info);
+	--severity-bg: var(--color-info-bg);
+}
+
+/* Animations */
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.4s ease forwards;
+}
+
+.animate-pulse {
+	animation: pulse 2s ease-in-out infinite;
+}
+
+/* Loading spinner */
+.spinner {
+	width: 24px;
+	height: 24px;
+	border: 3px solid var(--color-tan);
+	border-top-color: var(--color-accent);
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	html {
+		font-size: 16px;
+	}
+
+	h1 {
+		font-size: 2rem;
+	}
+
+	.container {
+		padding: 0 var(--space-md);
+	}
+}
