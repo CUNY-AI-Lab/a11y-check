@@ -374,6 +374,11 @@
 		});
 
 		const html = processed
+			// Escape angle brackets inside inline code FIRST (before they get stripped)
+			.replace(/`([^`]+)`/g, (match, code) => {
+				const escaped = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+				return `\`${escaped}\``;
+			})
 			// Escape HTML (but not our table tags)
 			.replace(/&(?!amp;|lt;|gt;)/g, '&amp;')
 			// Horizontal rules
