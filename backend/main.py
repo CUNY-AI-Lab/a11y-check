@@ -252,7 +252,7 @@ You are checking this document for BOTH accessibility AND formatting compliance.
 Organize your findings by category (Accessibility issues, then Formatting issues) for clarity."""
 
 
-async def stream_analysis(pdf_path: str, check_type: Literal["accessibility", "formatting", "both"], structure_report: str):
+async def stream_analysis(check_type: Literal["accessibility", "formatting", "both"], structure_report: str):
     """
     Stream PDF analysis using Claude Agent SDK.
     Yields Server-Sent Events as the agent works.
@@ -341,22 +341,26 @@ async def analyze_document(
             detail="File too large. Maximum size is 25MB."
         )
 
-    # Save to temp file for agent to read
+    # Save to temp file for Docling extraction
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
         tmp.write(pdf_bytes)
         tmp_path = tmp.name
 
-    # Extract PDF structure using Docling
+    # Extract PDF structure using Docling, then delete temp file
     try:
         structure = extract_pdf_structure(tmp_path)
         structure_report = format_structure_for_agent(structure)
     except Exception as e:
         # If Docling fails, continue without structural data
         structure_report = f"[Docling structure extraction failed: {str(e)}]"
+    finally:
+        # Always clean up the temp file - it's no longer needed after extraction
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
     # Return streaming response
     return StreamingResponse(
-        stream_analysis(tmp_path, check_type, structure_report),
+        stream_analysis(check_type, structure_report),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

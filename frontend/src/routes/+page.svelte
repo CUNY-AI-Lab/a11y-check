@@ -13,6 +13,7 @@
 	let dragOver = $state(false);
 	let statusMessage = $state('');
 	let currentStage = $state(0); // 0=idle, 1=uploading, 2=extracting, 3=analyzing, 4=generating
+	let showPrivacyModal = $state(false);
 
 	// Progress stages
 	const stages = [
@@ -438,9 +439,54 @@ ${formatMarkdown(analysisText)}
 			<p class="footer-note">
 				This tool uses AI to analyze your document. Results should be verified manually.
 			</p>
+			<p class="privacy-note">
+				Document text is sent to Anthropic's Claude API for analysis. Your data is not used for AI training.
+				<button type="button" class="link-button" onclick={() => showPrivacyModal = true}>
+					Learn more
+				</button>
+			</p>
 		</div>
 	</footer>
 </div>
+
+<!-- Privacy Modal -->
+{#if showPrivacyModal}
+	<div class="modal-overlay" onclick={() => showPrivacyModal = false} role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title" tabindex="-1">
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2 id="privacy-modal-title">How Your Data is Handled</h2>
+				<button type="button" class="modal-close" onclick={() => showPrivacyModal = false} aria-label="Close">
+					&times;
+				</button>
+			</div>
+			<div class="modal-body">
+				<h3>What happens when you upload a document?</h3>
+				<ol>
+					<li><strong>Local processing:</strong> Your PDF is processed on our server using Docling, which extracts the document structure (headings, tables, images, text).</li>
+					<li><strong>Text sent to API:</strong> The extracted text and structure is sent to Anthropic's Claude API for analysis.</li>
+					<li><strong>Immediate deletion:</strong> Your uploaded PDF is deleted from our server immediately after extraction.</li>
+				</ol>
+
+				<h3>Your data is not used for AI training</h3>
+				<p>
+					Under Anthropic's <a href="https://www.anthropic.com/legal/commercial-terms" target="_blank" rel="noopener">Commercial Terms</a>,
+					data sent through the API is never used to train AI models. Logs are retained briefly for safety purposes, then deleted.
+				</p>
+
+				<h3>No data stored on our servers</h3>
+				<p>
+					We do not store your documents, analysis results, or any personal information.
+					Each analysis is completely ephemeral.
+				</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-primary" onclick={() => showPrivacyModal = false}>
+					Got it
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <script context="module">
 	import DOMPurify from 'dompurify';
@@ -1082,6 +1128,116 @@ ${formatMarkdown(analysisText)}
 	.footer-note {
 		font-size: 0.875rem;
 		color: var(--color-ink-muted);
+	}
+
+	.privacy-note {
+		font-size: 0.8125rem;
+		color: var(--color-ink-muted);
+		margin-top: var(--space-sm);
+	}
+
+	.link-button {
+		background: none;
+		border: none;
+		color: var(--color-accent);
+		cursor: pointer;
+		text-decoration: underline;
+		font-size: inherit;
+		padding: 0;
+	}
+
+	.link-button:hover {
+		color: var(--color-accent-dark);
+	}
+
+	/* Modal */
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: var(--space-lg);
+	}
+
+	.modal {
+		background: white;
+		border-radius: var(--radius-lg);
+		max-width: 600px;
+		width: 100%;
+		max-height: 90vh;
+		overflow-y: auto;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--space-lg) var(--space-xl);
+		border-bottom: var(--border-light);
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
+	.modal-close {
+		background: none;
+		border: none;
+		font-size: 1.75rem;
+		cursor: pointer;
+		color: var(--color-ink-muted);
+		padding: 0;
+		line-height: 1;
+	}
+
+	.modal-close:hover {
+		color: var(--color-ink);
+	}
+
+	.modal-body {
+		padding: var(--space-xl);
+	}
+
+	.modal-body h3 {
+		font-size: 1rem;
+		margin-top: var(--space-lg);
+		margin-bottom: var(--space-sm);
+	}
+
+	.modal-body h3:first-child {
+		margin-top: 0;
+	}
+
+	.modal-body p {
+		margin: var(--space-sm) 0;
+		color: var(--color-ink-soft);
+	}
+
+	.modal-body ul,
+	.modal-body ol {
+		margin: var(--space-sm) 0;
+		padding-left: var(--space-xl);
+		color: var(--color-ink-soft);
+	}
+
+	.modal-body li {
+		margin-bottom: var(--space-xs);
+	}
+
+	.modal-body a {
+		color: var(--color-accent);
+	}
+
+	.modal-footer {
+		padding: var(--space-lg) var(--space-xl);
+		border-top: var(--border-light);
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	/* Responsive */
