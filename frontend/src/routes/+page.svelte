@@ -12,6 +12,15 @@
 	let error = $state<string | null>(null);
 	let dragOver = $state(false);
 	let statusMessage = $state('');
+	let currentStage = $state(0); // 0=idle, 1=uploading, 2=extracting, 3=analyzing, 4=generating
+
+	// Progress stages
+	const stages = [
+		{ label: 'Upload', description: 'Sending document to server' },
+		{ label: 'Extract', description: 'Analyzing document structure (this may take a minute for large files)' },
+		{ label: 'Analyze', description: 'Checking for issues' },
+		{ label: 'Report', description: 'Generating recommendations' }
+	];
 
 	// Derived
 	let canAnalyze = $derived(file !== null && !isAnalyzing);
@@ -62,12 +71,16 @@
 		isAnalyzing = true;
 		error = null;
 		analysisText = '';
-		statusMessage = 'Preparing analysis...';
+		currentStage = 1; // Uploading
+		statusMessage = 'Uploading document...';
 
 		try {
 			const formData = new FormData();
 			formData.append('file', file);
 			formData.append('check_type', checkType);
+
+			currentStage = 2; // Extracting (happens on backend before streaming starts)
+			statusMessage = 'Extracting document structure...';
 
 			const response = await fetch(`${API_URL}/analyze`, {
 				method: 'POST',
@@ -105,9 +118,10 @@
 						try {
 							const event = JSON.parse(data);
 
-							// Init event
+							// Init event - stream connected, now analyzing
 							if (event.subtype === 'init') {
-								statusMessage = 'Connected to AI assistant...';
+								currentStage = 3; // Analyzing
+								statusMessage = 'AI is analyzing your document...';
 							}
 
 							// Tool use events (show what the agent is doing)
@@ -115,13 +129,14 @@
 								for (const block of event.content) {
 									// Tool use - agent is reading/doing something
 									if (block.name === 'Read') {
-										statusMessage = 'Reading your PDF document...';
+										statusMessage = 'Reading document content...';
 									}
 
 									// Text content from assistant - agent is generating analysis
 									if (block.text && typeof block.text === 'string') {
 										if (!analysisText) {
-											statusMessage = 'Generating analysis...';
+											currentStage = 4; // Generating report
+											statusMessage = 'Generating report...';
 										}
 										analysisText += block.text;
 									}
@@ -130,6 +145,7 @@
 
 							// Final result from success event
 							if (event.subtype === 'success') {
+								currentStage = 0;
 								statusMessage = '';
 								if (event.result && !analysisText) {
 									analysisText = event.result;
@@ -139,6 +155,7 @@
 							// Handle errors
 							if (event.type === 'error' || event.subtype === 'error') {
 								error = event.error || event.message || 'An error occurred during analysis';
+								currentStage = 0;
 								statusMessage = '';
 							}
 						} catch (e) {
@@ -151,6 +168,7 @@
 			error = e instanceof Error ? e.message : 'An unexpected error occurred';
 		} finally {
 			isAnalyzing = false;
+			currentStage = 0;
 			statusMessage = '';
 		}
 	}
@@ -306,8 +324,34 @@
 					<div class="analysis-output card animate-fade-in">
 						{#if isAnalyzing && !analysisText}
 							<div class="loading-state">
-								<span class="spinner" aria-hidden="true"></span>
-								<p>{statusMessage || 'Reading and analyzing your document...'}</p>
+								<!-- Progress stages -->
+								<div class="progress-stages" role="progressbar" aria-valuenow={currentStage} aria-valuemin="1" aria-valuemax="4" aria-label="Analysis progress">
+									{#each stages as stage, i}
+										<div class="stage" class:active={currentStage === i + 1} class:complete={currentStage > i + 1}>
+											<div class="stage-indicator">
+												{#if currentStage > i + 1}
+													<span class="check" aria-hidden="true">✓</span>
+												{:else if currentStage === i + 1}
+													<span class="spinner small" aria-hidden="true"></span>
+												{:else}
+													<span class="number">{i + 1}</span>
+												{/if}
+											</div>
+											<span class="stage-label">{stage.label}</span>
+										</div>
+										{#if i < stages.length - 1}
+											<div class="stage-connector" class:complete={currentStage > i + 1}></div>
+										{/if}
+									{/each}
+								</div>
+
+								<!-- Current status -->
+								<div class="current-status">
+									<p class="status-text">{statusMessage}</p>
+									{#if currentStage === 2}
+										<p class="status-hint">Large documents may take a minute to process</p>
+									{/if}
+								</div>
 							</div>
 						{:else}
 							{#if statusMessage && isAnalyzing}
@@ -733,6 +777,109 @@
 		width: 16px;
 		height: 16px;
 		border-width: 2px;
+	}
+
+	/* Progress stages */
+	.progress-stages {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0;
+		margin-bottom: var(--space-xl);
+		flex-wrap: wrap;
+	}
+
+	.stage {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-xs);
+		opacity: 0.4;
+		transition: opacity var(--transition-normal);
+	}
+
+	.stage.active,
+	.stage.complete {
+		opacity: 1;
+	}
+
+	.stage-indicator {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: var(--color-paper);
+		border: 2px solid var(--color-tan);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 600;
+		color: var(--color-ink-muted);
+		transition: all var(--transition-normal);
+	}
+
+	.stage.active .stage-indicator {
+		border-color: var(--color-accent);
+		background: var(--color-accent);
+		color: white;
+	}
+
+	.stage.complete .stage-indicator {
+		border-color: var(--color-success);
+		background: var(--color-success);
+		color: white;
+	}
+
+	.stage-indicator .check {
+		font-size: 1.25rem;
+	}
+
+	.stage-indicator .number {
+		font-size: 0.875rem;
+	}
+
+	.stage-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-ink-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.stage.active .stage-label {
+		color: var(--color-accent);
+	}
+
+	.stage.complete .stage-label {
+		color: var(--color-success);
+	}
+
+	.stage-connector {
+		width: 40px;
+		height: 2px;
+		background: var(--color-tan);
+		margin: 0 var(--space-xs);
+		margin-bottom: 20px; /* Align with indicator center */
+		transition: background var(--transition-normal);
+	}
+
+	.stage-connector.complete {
+		background: var(--color-success);
+	}
+
+	.current-status {
+		text-align: center;
+	}
+
+	.status-text {
+		font-size: 1rem;
+		color: var(--color-ink);
+		margin: 0;
+	}
+
+	.status-hint {
+		font-size: 0.875rem;
+		color: var(--color-ink-muted);
+		margin: var(--space-sm) 0 0;
 	}
 
 	.markdown-content {
