@@ -124,9 +124,8 @@ When explaining how to fix issues, provide TOOL-AGNOSTIC instructions that work 
 - Other tools
 
 Do NOT assume the user has Adobe Acrobat Pro. Instead:
-- Focus on fixing issues in the SOURCE DOCUMENT before exporting to PDF
+- Explain fixes using the word processor (Google Docs, Word, etc.) rather than PDF editing tools
 - Explain the general principle (e.g., "use heading styles instead of bold text")
-- Mention that most word processors have built-in accessibility checkers
 - For Google Docs specifically: Accessibility settings are under Tools > Accessibility
 
 # Severity Levels
@@ -228,11 +227,10 @@ When explaining how to fix issues, provide TOOL-AGNOSTIC instructions that work 
 - Other tools
 
 Do NOT assume the user has Adobe Acrobat Pro. Instead:
-- Focus on fixing issues in the SOURCE DOCUMENT before exporting to PDF
+- Explain fixes using the word processor (Google Docs, Word, etc.) rather than PDF editing tools
 - Explain the general principle (e.g., "set margins in Page Setup before exporting")
 - For Google Docs: File > Page setup for margins; Format > Paragraph styles for headings
 - For LaTeX: Mention common packages like geometry for margins, titlesec for headings
-- Emphasize that formatting should be correct in the source document, not fixed in the PDF after export
 
 # Severity Levels
 
