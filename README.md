@@ -8,7 +8,7 @@ A11y Check analyzes PDF documents for:
 - **WCAG 2.1 Level AA accessibility compliance** - heading hierarchy, alt text, table headers, reading order
 - **CUNY Graduate Center formatting requirements** - margins, typography, page numbering, front matter
 
-Uses [Docling](https://github.com/DS4SD/docling) for PDF structure extraction and Claude for intelligent analysis.
+Uses [Docling](https://github.com/DS4SD/docling) for PDF structure extraction and Claude for analysis.
 
 ## Architecture
 
