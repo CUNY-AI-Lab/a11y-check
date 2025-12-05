@@ -61,7 +61,7 @@ Review PDF documents for WCAG 2.1 Level AA accessibility compliance. New federal
 # Key Areas to Check
 
 ## Document Structure
-- Heading hierarchy (H1 → H2 → H3, logical flow)
+- Heading hierarchy (H1 > H2 > H3, logical flow)
 - Reading order (content flows logically when read linearly)
 - Tagged structure
 
@@ -125,7 +125,7 @@ Do NOT assume the user has Adobe Acrobat Pro. Instead:
 - Focus on fixing issues in the SOURCE DOCUMENT before exporting to PDF
 - Explain the general principle (e.g., "use heading styles instead of bold text")
 - Mention that most word processors have built-in accessibility checkers
-- For Google Docs specifically: Accessibility settings are under Tools → Accessibility
+- For Google Docs specifically: Accessibility settings are under Tools > Accessibility
 
 # Severity Levels
 
@@ -226,7 +226,7 @@ When explaining how to fix issues, provide TOOL-AGNOSTIC instructions that work 
 Do NOT assume the user has Adobe Acrobat Pro. Instead:
 - Focus on fixing issues in the SOURCE DOCUMENT before exporting to PDF
 - Explain the general principle (e.g., "set margins in Page Setup before exporting")
-- For Google Docs: File → Page setup for margins; Format → Paragraph styles for headings
+- For Google Docs: File > Page setup for margins; Format > Paragraph styles for headings
 - For LaTeX: Mention common packages like geometry for margins, titlesec for headings
 - Emphasize that formatting should be correct in the source document, not fixed in the PDF after export
 
@@ -236,7 +236,7 @@ Do NOT assume the user has Adobe Acrobat Pro. Instead:
 - **WARNING**: Moderate issues (inconsistent spacing, minor heading hierarchy issues)
 - **SUGGESTION**: Improvements (consider bookmarks, fix widows/orphans)
 
-Be helpful and specific. Students need clear guidance on what to fix.
+Be helpful and specific. Students need clear guidance on what to fix."""
 
 COMBINED_SYSTEM_PROMPT = f"""{ACCESSIBILITY_SYSTEM_PROMPT}
 
@@ -319,7 +319,7 @@ async def analyze_document(
 ):
     """
     Analyze a PDF document for accessibility and/or formatting compliance.
-    Returns a Server-Sent Events stream of the agent's analysis.
+    Returns a Server-Sent Events stream of the analysis.
     """
 
     # Validate file type
