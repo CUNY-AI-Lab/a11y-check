@@ -54,6 +54,8 @@ ACCESSIBILITY_SYSTEM_PROMPT = """You are an accessibility expert helping student
 
 This is a ONE-TIME REPORT. The user cannot respond or ask follow-up questions. Your output must be a complete, self-contained accessibility report that the student can use to fix their document independently.
 
+Do NOT include an analysis date or timestamp - just provide the report content.
+
 # Your Role
 
 Review PDF documents for WCAG 2.1 Level AA accessibility compliance. New federal accessibility requirements go into effect April 24, 2026.
@@ -140,6 +142,8 @@ FORMATTING_SYSTEM_PROMPT = """You are a dissertation formatting expert helping s
 # Output Format
 
 This is a ONE-TIME REPORT. The user cannot respond or ask follow-up questions. Your output must be a complete, self-contained formatting report that the student can use to fix their document independently.
+
+Do NOT include an analysis date or timestamp - just provide the report content.
 
 # Your Role
 
